@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "segment-img"
+version = "0.1.0"
+description = "Mask R-CNN starter project for pixel-level image segmentation."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.111",
+    "Jinja2>=3.1",
+    "numpy>=1.26",
+    "Pillow>=10.0",
+    "python-multipart>=0.0.9",
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+segment-img = "segment_img.cli:main"
+segment-img-ui = "segment_img.web:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"segment_img" = [
+    "web_assets/templates/*.html",
+    "web_assets/static/*.css",
+    "web_assets/static/*.js",
+]
