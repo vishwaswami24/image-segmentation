@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+src/segment_img/__init__.py
+src/segment_img/cli.py
+src/segment_img/inference.py
+src/segment_img/results.py
+src/segment_img/visualization.py
+src/segment_img/web.py
+src/segment_img.egg-info/PKG-INFO
+src/segment_img.egg-info/SOURCES.txt
+src/segment_img.egg-info/dependency_links.txt
+src/segment_img.egg-info/entry_points.txt
+src/segment_img.egg-info/requires.txt
+src/segment_img.egg-info/top_level.txt
+src/segment_img/web_assets/static/app.js
+src/segment_img/web_assets/static/styles.css
+src/segment_img/web_assets/templates/index.html

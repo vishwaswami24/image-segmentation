@@ -1,0 +1,3 @@
+[console_scripts]
+segment-img = segment_img.cli:main
+segment-img-ui = segment_img.web:main

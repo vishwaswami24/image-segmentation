@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="grid-haze"></div>
+
+    <header class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Instance Segmentation</div>
+        <h1 class="hero-brand">Mask R-CNN Segmentation Studio</h1>
+        <p class="hero-lead">
+          Upload a frame, compare the raw scene with the generated overlay, filter detections by
+          confidence or coverage, and spotlight the exact mask that matters.
+        </p>
+      </div>
+
+      <div class="hero-rail">
+        <article class="hero-card">
+          <span>Best for</span>
+          <strong>Autonomous scenes, QA review, and custom domain checkpoints</strong>
+        </article>
+        <article class="hero-card">
+          <span>Outputs</span>
+          <strong>Overlay image, binary masks, and machine-readable JSON summary</strong>
+        </article>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel control-panel">
+        <div class="panel-header">
+          <h2>Run Segmentation</h2>
+          <p>Choose an image, tune inference thresholds, and optionally switch to a custom checkpoint.</p>
+        </div>
+
+        {% if error %}
+        <div class="alert">{{ error }}</div>
+        {% endif %}
+
+        <form class="control-form" action="/segment" method="post" enctype="multipart/form-data">
+          <div class="control-section-heading">
+            <span class="section-step">1</span>
+            <div>
+              <strong>Choose an image</strong>
+              <p>Start with a single frame you want to segment.</p>
+            </div>
+          </div>
+
+          <label class="field upload-field">
+            <span>Input image</span>
+            <input id="imageFile" type="file" name="image_file" accept="image/*" required>
+            <strong id="uploadLabel">Drop an image here or click to browse</strong>
+            <small>PNG, JPG, TIFF, WEBP, and related image formats are supported.</small>
+          </label>
+
+          <div class="control-section-heading">
+            <span class="section-step">2</span>
+            <div>
+              <strong>Tune detection behavior</strong>
+              <p>Raise thresholds for cleaner masks, or lower them to catch more candidates.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Score threshold</span>
+              <input class="range-input" type="range" min="0.1" max="0.95" step="0.05" name="score_threshold" value="{{ form.score_threshold }}">
+              <output>{{ "%.2f"|format(form.score_threshold) }}</output>
+            </label>
+
+            <label class="field">
+              <span>Mask threshold</span>
+              <input class="range-input" type="range" min="0.1" max="0.95" step="0.05" name="mask_threshold" value="{{ form.mask_threshold }}">
+              <output>{{ "%.2f"|format(form.mask_threshold) }}</output>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Top detections</span>
+              <input class="range-input" type="range" min="1" max="50" step="1" name="top_k" value="{{ form.top_k }}">
+              <output>{{ form.top_k }}</output>
+            </label>
+
+            <label class="field">
+              <span>Device</span>
+              <select name="device">
+                <option value="auto" {% if form.device == "auto" %}selected{% endif %}>Auto</option>
+                <option value="cpu" {% if form.device == "cpu" %}selected{% endif %}>CPU</option>
+                <option value="cuda" {% if form.device == "cuda" %}selected{% endif %}>CUDA</option>
+              </select>
+            </label>
+          </div>
+
+          <details class="advanced-panel">
+            <summary>Advanced model settings</summary>
+            <div class="advanced-grid">
+              <label class="field field-full">
+                <span>Checkpoint path</span>
+                <input type="text" name="checkpoint_path" value="{{ form.checkpoint_path }}" placeholder="C:\models\maskrcnn.pt">
+                <small>Leave blank to use the default COCO-pretrained Mask R-CNN model.</small>
+              </label>
+
+              <label class="field">
+                <span>Number of classes</span>
+                <input type="number" min="1" name="num_classes" value="{{ form.num_classes if form.num_classes is not none else '' }}" placeholder="4">
+              </label>
+
+              <label class="field field-full">
+                <span>Labels</span>
+                <textarea name="labels_text" rows="6" placeholder="tumor&#10;lesion&#10;organ">{{ form.labels_text }}</textarea>
+                <small>One class per line. Background will be added automatically when needed.</small>
+              </label>
+            </div>
+          </details>
+
+          <div class="control-section-heading">
+            <span class="section-step">3</span>
+            <div>
+              <strong>Apply a quick preset</strong>
+              <p>These buttons instantly update the three sliders with common threshold combinations.</p>
+            </div>
+          </div>
+
+          <div class="preset-strip preset-strip-rich">
+            <button type="button" class="preset-chip preset-chip-rich" data-preset-score="0.75" data-preset-mask="0.55" data-preset-topk="12" title="Higher confidence, fewer detections, cleaner object shapes.">
+              <span>Precision preset</span>
+              <strong>Cleaner masks</strong>
+              <small>Higher confidence and fewer detections.</small>
+            </button>
+            <button type="button" class="preset-chip preset-chip-rich" data-preset-score="0.5" data-preset-mask="0.45" data-preset-topk="24" title="Lower thresholds to surface more possible objects, even with extra noise.">
+              <span>Recall preset</span>
+              <strong>Find more objects</strong>
+              <small>Lower thresholds and keep more candidates.</small>
+            </button>
+            <button type="button" class="preset-chip preset-chip-rich" data-preset-score="0.65" data-preset-mask="0.6" data-preset-topk="8" title="Balanced setting for human review and inspection.">
+              <span>Review preset</span>
+              <strong>Balanced pass</strong>
+              <small>Designed for quick visual inspection.</small>
+            </button>
+          </div>
+
+          <div class="helper-note">
+            <strong>What these presets do:</strong>
+            Precision favors cleaner masks, Recall surfaces more candidates, and Review aims for a balanced visual pass.
+          </div>
+
+          <div class="helper-note helper-note-soft">
+            <strong>Tip:</strong>
+            `Score threshold` controls how confident the model must be. `Mask threshold` controls how solid a predicted shape must be before it becomes a visible mask.
+          </div>
+
+          <div class="form-actions">
+            <button class="secondary-button" id="clearButton" type="button">Clear and start over</button>
+            <button class="primary-button" type="submit">Segment Image</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel results-panel">
+        {% if result %}
+        {% set spotlight = result.largest_detection if result.largest_detection else (result.detections[0] if result.detections else none) %}
+
+        <div class="results-header">
+          <div class="panel-header">
+            <h2>Segmentation Analysis Console</h2>
+            <p>Compare source and overlay, inspect the strongest instances, and reshape the gallery in real time.</p>
+          </div>
+
+          <div class="results-actions">
+            <a class="ghost-link" href="{{ result.summary_url }}">Download JSON</a>
+            <span class="status-pill">{{ result.model_name }}</span>
+          </div>
+        </div>
+
+        <div class="stats-row stats-row-rich">
+          <article class="stat-card">
+            <span class="stat-label">Detections</span>
+            <strong>{{ result.detection_count }}</strong>
+            <small>{{ result.unique_label_count }} unique labels</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Segmented pixels</span>
+            <strong>{{ "%.2f"|format(result.segmented_pixel_pct) }}%</strong>
+            <small>Union of all instance masks</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Average confidence</span>
+            <strong>{{ "%.2f"|format(result.avg_confidence_pct) }}%</strong>
+            <small>{{ result.device }}</small>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Dominant label</span>
+            <strong>{{ result.dominant_label }}</strong>
+            <small>{{ result.image_width }} x {{ result.image_height }}</small>
+          </article>
+        </div>
+
+        <div class="analysis-deck">
+          <article class="comparison-panel">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">Scene Compare</span>
+                <h3>Original vs segmented overlay</h3>
+                <p class="section-help">Use these view buttons to switch between the raw image, the full mask overlay, or a split compare mode.</p>
+              </div>
+              <div class="view-switcher" id="viewSwitcher">
+                <button type="button" class="view-mode" data-view-mode="split" title="Show both images with a movable divide.">Compare</button>
+                <button type="button" class="view-mode" data-view-mode="original" title="Show only the raw uploaded frame.">Source Only</button>
+                <button type="button" class="view-mode is-active" data-view-mode="overlay" title="Show only the mask overlay.">Mask Overlay</button>
+              </div>
+            </div>
+
+            <div class="mode-guide">
+              <article class="mode-guide-card">
+                <span>Compare</span>
+                <p>Shows both versions and lets the slider reveal the difference.</p>
+              </article>
+              <article class="mode-guide-card">
+                <span>Source Only</span>
+                <p>Shows the original image without any segmentation overlay.</p>
+              </article>
+              <article class="mode-guide-card">
+                <span>Mask Overlay</span>
+                <p>Shows the segmented result with masks, boxes, and labels.</p>
+              </article>
+            </div>
+
+            <div class="comparison-stage" id="comparisonStage" data-view-mode="overlay" style="--split-point: 56%;">
+              <img class="comparison-base" src="{{ result.source_url }}" alt="Original uploaded image">
+              <div class="comparison-overlay" id="comparisonOverlay">
+                <img src="{{ result.overlay_url }}" alt="Segmentation overlay image">
+              </div>
+              <div class="comparison-handle" id="comparisonHandle"></div>
+            </div>
+
+            <div class="comparison-controls">
+              <label class="field comparison-control">
+                <span>Compare slider</span>
+                <input id="comparisonSlider" class="range-input" type="range" min="0" max="100" step="1" value="56">
+                <output id="comparisonOutput">56%</output>
+              </label>
+
+              <div class="download-cluster">
+                <a class="ghost-link" href="{{ result.source_url }}" target="_blank" rel="noreferrer">Open source</a>
+                <a class="ghost-link" href="{{ result.overlay_url }}" target="_blank" rel="noreferrer">Open overlay</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="focus-panel" id="focusPanel">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">Focus Lab</span>
+                <h3 id="focusLabel">{{ spotlight.label if spotlight else "No active mask" }}</h3>
+              </div>
+              {% if spotlight %}
+              <div class="focus-swatch" id="focusSwatch" style="background: {{ spotlight.color_css }};"></div>
+              {% else %}
+              <div class="focus-swatch" id="focusSwatch"></div>
+              {% endif %}
+            </div>
+
+            {% if spotlight %}
+            <div class="focus-preview-wrap">
+              <img id="focusMaskImage" class="focus-preview" src="{{ spotlight.mask_url }}" alt="Focused segmentation mask">
+            </div>
+
+            <div class="focus-metrics">
+              <article>
+                <span>Confidence</span>
+                <strong id="focusScore">{{ "%.2f"|format(spotlight.score_pct) }}%</strong>
+              </article>
+              <article>
+                <span>Coverage</span>
+                <strong id="focusCoverage">{{ "%.2f"|format(spotlight.coverage_pct) }}%</strong>
+              </article>
+              <article>
+                <span>Mask pixels</span>
+                <strong id="focusPixels">{{ spotlight.mask_pixels }}</strong>
+              </article>
+            </div>
+
+            <div class="focus-meta">
+              <p id="focusBox">Box: [{{ spotlight.box.xmin }}, {{ spotlight.box.ymin }}, {{ spotlight.box.xmax }}, {{ spotlight.box.ymax }}]</p>
+              <a id="focusDownload" class="ghost-link" href="{{ spotlight.mask_url }}" target="_blank" rel="noreferrer">Open focused mask</a>
+            </div>
+            {% else %}
+            <div class="empty-state compact">
+              <h3>No mask selected yet.</h3>
+              <p>Once detections exist, selecting a card will spotlight the corresponding binary mask here.</p>
+            </div>
+            {% endif %}
+          </article>
+        </div>
+
+        <div class="insight-grid">
+          <article class="insight-card">
+            <span>Largest footprint</span>
+            {% if result.largest_detection %}
+            <strong>{{ result.largest_detection.label }}</strong>
+            <small>{{ "%.2f"|format(result.largest_detection.coverage_pct) }}% of the frame</small>
+            {% else %}
+            <strong>No detections</strong>
+            <small>Try lowering the confidence threshold.</small>
+            {% endif %}
+          </article>
+          <article class="insight-card">
+            <span>Label spread</span>
+            <strong>{{ result.unique_label_count }} classes</strong>
+            <small>Useful for quickly spotting mixed scenes or narrow predictions.</small>
+          </article>
+          <article class="insight-card">
+            <span>Review hint</span>
+            <strong>Click any mask card</strong>
+            <small>The focus panel and spotlight styling update immediately.</small>
+          </article>
+        </div>
+
+        {% if result.detections %}
+        <div class="toolbar-panel">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="section-kicker">Explorer</span>
+              <h3>Filter, sort, and isolate detections</h3>
+            </div>
+          </div>
+
+          <div class="toolbar-grid">
+            <label class="field">
+              <span>Search label</span>
+              <input id="searchInput" type="text" placeholder="person, vehicle, lesion">
+            </label>
+
+            <label class="field">
+              <span>Class filter</span>
+              <select id="labelFilter">
+                <option value="all">All labels</option>
+                {% for label_row in result.label_breakdown %}
+                <option value="{{ label_row.label }}">{{ label_row.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Sort gallery</span>
+              <select id="sortSelect">
+                <option value="score_desc">Highest confidence</option>
+                <option value="coverage_desc">Largest coverage</option>
+                <option value="label_asc">Label A-Z</option>
+                <option value="score_asc">Lowest confidence</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Minimum coverage</span>
+              <input id="coverageFilter" class="range-input" type="range" min="0" max="100" step="1" value="0">
+              <output id="coverageFilterOutput">0%</output>
+            </label>
+          </div>
+
+          <div class="chip-strip" id="labelChips">
+            <button type="button" class="label-chip is-active" data-chip-label="all">All detections</button>
+            {% for label_row in result.label_breakdown %}
+            <button type="button" class="label-chip" data-chip-label="{{ label_row.label }}">{{ label_row.label }} | {{ label_row.count }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="breakdown-panel">
+          <div class="section-heading compact-heading">
+            <div>
+              <span class="section-kicker">Label Mix</span>
+              <h3>Distribution of detected classes</h3>
+            </div>
+          </div>
+
+          <div class="breakdown-list">
+            {% for row in result.label_breakdown %}
+            <article class="breakdown-row">
+              <div class="breakdown-head">
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.count }} detections</span>
+              </div>
+              <div class="breakdown-bar">
+                <div class="breakdown-fill" style="width: {{ row.bar_pct }}%;"></div>
+              </div>
+              <div class="breakdown-meta">
+                <span>{{ "%.2f"|format(row.avg_score_pct) }}% avg confidence</span>
+                <span>{{ "%.2f"|format(row.coverage_pct) }}% total coverage</span>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="mask-grid enhanced-mask-grid" id="maskGrid">
+          {% for detection in result.detections %}
+          {% set is_active = spotlight and detection.instance_id == spotlight.instance_id %}
+          <article
+            class="mask-card interactive-mask{% if is_active %} is-active{% endif %}"
+            tabindex="0"
+            role="button"
+            data-index="{{ loop.index0 }}"
+            data-label="{{ detection.label }}"
+            data-score="{{ detection.score_pct }}"
+            data-coverage="{{ detection.coverage_pct }}"
+            data-color="{{ detection.color_css }}"
+            data-mask-url="{{ detection.mask_url }}"
+            data-box="[{{ detection.box.xmin }}, {{ detection.box.ymin }}, {{ detection.box.xmax }}, {{ detection.box.ymax }}]"
+            data-mask-pixels="{{ detection.mask_pixels }}"
+            style="--mask-accent: {{ detection.color_css }};"
+          >
+            <div class="mask-card-topline"></div>
+            <img src="{{ detection.mask_url }}" alt="Mask for {{ detection.label }}">
+            <div class="mask-body">
+              <div class="mask-title-row">
+                <div>
+                  <h3>{{ detection.label }}</h3>
+                  <span class="mask-subtitle">Instance {{ detection.instance_id }}</span>
+                </div>
+                <span class="mask-score">{{ "%.2f"|format(detection.score_pct) }}%</span>
+              </div>
+
+              <div class="metric-bars">
+                <div>
+                  <span>Coverage</span>
+                  <strong>{{ "%.2f"|format(detection.coverage_pct) }}%</strong>
+                </div>
+                <div class="mini-bar">
+                  <div style="width: {{ detection.coverage_pct }}%;"></div>
+                </div>
+              </div>
+
+              <p>{{ detection.mask_pixels }} mask pixels extracted from the current frame.</p>
+              <code>[{{ detection.box.xmin }}, {{ detection.box.ymin }}, {{ detection.box.xmax }}, {{ detection.box.ymax }}]</code>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+
+        <div class="filtered-empty" id="filteredEmpty" hidden>
+          <h3>No detections match the current explorer filters.</h3>
+          <p>Broaden the search, reduce the minimum coverage, or switch the active class chip.</p>
+        </div>
+        {% else %}
+        <div class="empty-state compact">
+          <h3>No instances survived the current threshold settings.</h3>
+          <p>Lower the score threshold, increase top-k, or try a different frame to surface more candidate objects.</p>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state empty-state-rich">
+          <h2>Ready for a richer segmentation pass.</h2>
+          <p>
+            Once you upload an image, this dashboard expands into an analysis console with a before
+            and after comparison slider, label distribution, focus mode for a selected instance, and
+            a filterable gallery of binary masks.
+          </p>
+
+          <div class="empty-feature-grid">
+            <article>
+              <span>Compare</span>
+              <strong>Slide between the raw scene and mask overlay.</strong>
+            </article>
+            <article>
+              <span>Spotlight</span>
+              <strong>Click a detection card to inspect one instance in detail.</strong>
+            </article>
+            <article>
+              <span>Explore</span>
+              <strong>Sort, search, and isolate detections by label or coverage.</strong>
+            </article>
+          </div>
+        </div>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+
+  {% if result %}
+  <script id="resultData" type="application/json">{{ result | tojson }}</script>
+  {% endif %}
+  <script src="/static/app.js"></script>
+</body>
+</html>
