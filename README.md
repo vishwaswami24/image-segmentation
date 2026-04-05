@@ -9,6 +9,8 @@
 
 `Segment-Img` is a lightweight starter project for image segmentation with Mask R-CNN. It goes beyond bounding boxes by predicting the exact pixel-level shape of each detected object, which is the core idea behind workflows used in areas like medical imaging and autonomous driving.
 
+<img width="1894" height="911" alt="image" src="https://github.com/user-attachments/assets/81208a65-7a41-47ac-9ebb-1687405d99a0" />
+
 ## Features
 
 - Runs instance segmentation with a pretrained `torchvision` Mask R-CNN model.
