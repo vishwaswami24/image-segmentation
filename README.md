@@ -1,5 +1,5 @@
 # Segment-Img 
-[![Python >=3.10](https://img.shields.io/badge/Python-3.14+-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Python >=3.10](https://img.shields.io/badge/Python-3.10+-blue.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![TorchVision](https://img.shields.io/badge/TorchVision-0.17+-f26521?logo=pytorch&logoColor=white)](https://pytorch.org/vision/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-005571?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
